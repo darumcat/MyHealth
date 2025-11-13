@@ -1,32 +1,20 @@
-# MyHealth
-Personal health tracker. All data is stored securely and confidentially only on your device.
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-📱 About the Project
-MyHealth is a secure and confidential web application that allows you to keep a diary of your key health indicators.
+# Run and deploy your AI Studio app
 
-Key Principle: All your data is stored exclusively on your device in your browser. It is not sent anywhere or saved on our servers. Your privacy is our priority.
+This contains everything you need to run your app locally.
 
-✨ Features
-📊 Metric Tracking: Easily log and view your key metrics such as:
+View your app in AI Studio: https://ai.studio/apps/drive/1SRfdWj-GwkK1S45Yosyihdj3ezwNjEOH
 
-Blood Pressure
+## Run Locally
 
-Heart Rate / Pulse
+**Prerequisites:**  Node.js
 
-Blood Sugar Level
 
-Weight and BMI
-
-Mood and General Well-being
-
-Notes and Symptoms
-
-🔒 Privacy & Confidentiality: All data is stored locally in your browser using localStorage or IndexedDB.
-
-📈 Visualization: Build clear charts to analyze the dynamics of your indicators over time.
-
-📅 Calendar & History: View the history of all your entries in a convenient calendar view or as a list.
-
-🔔 Reminders (Planned): Set reminders to log data or take medication.
-
-📱 Responsive Design: A convenient interface both on desktop and mobile phones.
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
