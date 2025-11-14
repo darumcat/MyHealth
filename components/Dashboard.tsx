@@ -82,6 +82,25 @@ const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onLock, is
   const [selectedBloodMetric, setSelectedBloodMetric] = useState<string | null>(null);
   const [timePeriod, setTimePeriod] = useState<string>('all');
   const [isExporting, setIsExporting] = useState(false);
+  
+  // New state for custom export date range
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
+
+  // Effect to set default export dates
+  useEffect(() => {
+    if (appData.records.length > 0) {
+      const dates = appData.records.map(r => new Date(r.date).getTime());
+      const minDate = new Date(Math.min(...dates));
+      const maxDate = new Date(); // Today
+      setExportStartDate(minDate.toISOString().split('T')[0]);
+      setExportEndDate(maxDate.toISOString().split('T')[0]);
+    } else {
+      setExportStartDate('');
+      setExportEndDate('');
+    }
+  }, [appData.records]);
+
 
   const openAddModal = (type: RecordType) => {
     setRecordToEdit(null);
@@ -168,7 +187,30 @@ const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onLock, is
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      await exportService.exportToPdf(appData, filteredRecords);
+        const startDate = exportStartDate ? new Date(exportStartDate) : null;
+        const endDate = exportEndDate ? new Date(exportEndDate) : null;
+
+        if (startDate) {
+            startDate.setHours(0, 0, 0, 0);
+        }
+        if (endDate) {
+            endDate.setHours(23, 59, 59, 999);
+        }
+
+        const recordsToExport = appData.records.filter(record => {
+            const recordDate = new Date(record.date);
+            const isAfterStart = startDate ? recordDate >= startDate : true;
+            const isBeforeEnd = endDate ? recordDate <= endDate : true;
+            return isAfterStart && isBeforeEnd;
+        });
+        
+        if (recordsToExport.length === 0) {
+            alert('Нет данных для экспорта за выбранный период.');
+            setIsExporting(false); // Make sure to reset loading state
+            return;
+        }
+
+        await exportService.exportToPdf(appData, recordsToExport);
     } catch (error) {
       console.error("Failed to export PDF:", error);
       alert("Не удалось экспортировать PDF. Попробуйте еще раз.");
@@ -239,18 +281,41 @@ const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onLock, is
 
         <div className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
             <h2 className="text-xl font-bold text-slate-800 mb-4">Экспорт данных</h2>
-            <p className="text-slate-600 mb-4">Сохраните сводку ваших медицинских данных за выбранный период в виде PDF-документа.</p>
+            <p className="text-slate-600 mb-4">Выберите период и сохраните сводку ваших медицинских данных в виде PDF-документа.</p>
             
-            <button 
-                onClick={handleExport}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white font-bold rounded-lg shadow hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors disabled:bg-slate-400"
-                disabled={isExporting || filteredRecords.length === 0}
-            >
-                <PrintIcon className="h-5 w-5"/>
-                {isExporting ? 'Экспорт...' : 'Сохранить как PDF'}
-            </button>
-             {filteredRecords.length === 0 && (
-                <p className="text-sm text-slate-500 mt-2">Нет данных для экспорта за выбранный период.</p>
+            <div className="flex flex-col sm:flex-row gap-4 mb-4 items-end">
+                <div>
+                    <label htmlFor="export-start-date" className="block text-sm font-medium text-slate-700 mb-1">С даты</label>
+                    <input 
+                        id="export-start-date"
+                        type="date" 
+                        value={exportStartDate} 
+                        onChange={e => setExportStartDate(e.target.value)} 
+                        className="w-full p-2 border border-slate-300 rounded-md bg-white text-slate-800 shadow-sm"
+                    />
+                </div>
+                <div>
+                    <label htmlFor="export-end-date" className="block text-sm font-medium text-slate-700 mb-1">По дату</label>
+                    <input 
+                        id="export-end-date"
+                        type="date" 
+                        value={exportEndDate} 
+                        onChange={e => setExportEndDate(e.target.value)} 
+                        className="w-full p-2 border border-slate-300 rounded-md bg-white text-slate-800 shadow-sm"
+                    />
+                </div>
+                <button 
+                    onClick={handleExport}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white font-bold rounded-lg shadow hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors disabled:bg-slate-400"
+                    disabled={isExporting || appData.records.length === 0}
+                >
+                    <PrintIcon className="h-5 w-5"/>
+                    {isExporting ? 'Экспорт...' : 'Сохранить как PDF'}
+                </button>
+            </div>
+
+             {appData.records.length === 0 && (
+                <p className="text-sm text-slate-500 mt-2">Нет данных для экспорта.</p>
              )}
         </div>
 
