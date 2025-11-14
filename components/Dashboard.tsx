@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 // FIX: RecordType is an enum used as a value, so it must be imported as a value, not a type.
 import { RecordType } from '../types';
 import type { AppData, MedicalRecord, Vitals, BloodTest } from '../types';
 import { AddRecordModal } from './AddRecordModal';
-import { AddIcon, BloodIcon, LockIcon, PillIcon, SyringeIcon, VitalsIcon, LogoIcon, PrintIcon, EditIcon, DeleteIcon, HeartIcon, EyeIcon } from './icons';
+import { AddIcon, BloodIcon, LockIcon, PillIcon, SyringeIcon, VitalsIcon, LogoIcon, PrintIcon, EditIcon, DeleteIcon, HeartIcon, EyeIcon, ExportIcon, ImportIcon } from './icons';
 import { DataChart } from './DataChart';
 import { BloodTestChart } from './BloodTestChart';
 import { ProfileSection } from './ProfileSection';
@@ -15,6 +15,8 @@ import { TimePeriodSelector } from './TimePeriodSelector';
 interface DashboardProps {
   appData: AppData;
   onUpdateData: (newData: AppData) => Promise<void>;
+  onExportData: () => Promise<void>;
+  onImportData: (fileContent: string) => Promise<void>;
   onLock: () => void;
   isHighContrast: boolean;
   toggleHighContrast: () => void;
@@ -75,13 +77,15 @@ const filterRecordsByPeriod = (records: MedicalRecord[], period: string): Medica
 };
 
 
-const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onLock, isHighContrast, toggleHighContrast }) => {
+const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onExportData, onImportData, onLock, isHighContrast, toggleHighContrast }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalRecordType, setModalRecordType] = useState<RecordType | null>(null);
   const [recordToEdit, setRecordToEdit] = useState<MedicalRecord | null>(null);
   const [selectedBloodMetric, setSelectedBloodMetric] = useState<string | null>(null);
   const [timePeriod, setTimePeriod] = useState<string>('all');
   const [isExporting, setIsExporting] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // New state for custom export date range
   const [exportStartDate, setExportStartDate] = useState('');
@@ -184,7 +188,7 @@ const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onLock, is
     return filterRecordsByPeriod(appData.records, timePeriod);
   }, [appData.records, timePeriod]);
 
-  const handleExport = async () => {
+  const handleExportPdf = async () => {
     setIsExporting(true);
     try {
         const startDate = exportStartDate ? new Date(exportStartDate) : null;
@@ -217,6 +221,33 @@ const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onLock, is
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+          const text = e.target?.result;
+          if (typeof text === 'string') {
+              await onImportData(text);
+          }
+          if (event.target) {
+              event.target.value = '';
+          }
+      };
+      reader.onerror = () => {
+          alert("Не удалось прочитать файл.");
+          if (event.target) {
+              event.target.value = '';
+          }
+      }
+      reader.readAsText(file);
   };
 
   
@@ -280,7 +311,7 @@ const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onLock, is
         <ProfileSection appData={appData} onSaveProfile={handleSaveProfile} />
 
         <div className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Экспорт данных</h2>
+            <h2 className="text-xl font-bold text-slate-800 mb-4">Экспорт данных в PDF</h2>
             <p className="text-slate-600 mb-4">Выберите период и сохраните сводку ваших медицинских данных в виде PDF-документа.</p>
             
             <div className="flex flex-col sm:flex-row gap-4 mb-4 items-end">
@@ -305,7 +336,7 @@ const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onLock, is
                     />
                 </div>
                 <button 
-                    onClick={handleExport}
+                    onClick={handleExportPdf}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white font-bold rounded-lg shadow hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors disabled:bg-slate-400"
                     disabled={isExporting || appData.records.length === 0}
                 >
@@ -317,6 +348,37 @@ const Dashboard: React.FC<DashboardProps> = ({ appData, onUpdateData, onLock, is
              {appData.records.length === 0 && (
                 <p className="text-sm text-slate-500 mt-2">Нет данных для экспорта.</p>
              )}
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
+            <h2 className="text-xl font-bold text-slate-800 mb-4">Синхронизация и резервное копирование</h2>
+            <p className="text-slate-600 mb-4">
+                Переносите ваши данные между устройствами. Сохраните файл на одном устройстве, а затем загрузите его на другом.
+                Ваши данные остаются зашифрованными вашим паролем.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                    onClick={onExportData}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-sky-600 text-white font-bold rounded-lg shadow hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors"
+                >
+                    <ExportIcon className="h-5 w-5"/>
+                    <span>Экспорт для переноса</span>
+                </button>
+                <button
+                    onClick={handleImportClick}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white font-bold rounded-lg shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+                >
+                    <ImportIcon className="h-5 w-5"/>
+                    <span>Импорт данных</span>
+                </button>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileImport}
+                    className="hidden"
+                    accept=".json,application/json"
+                />
+            </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">

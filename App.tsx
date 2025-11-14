@@ -4,7 +4,7 @@ import Dashboard from './components/Dashboard';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { cryptoService } from './lib/crypto';
 import { dbService } from './lib/db';
-import type { AppData } from './types';
+import type { AppData, MedicalRecord } from './types';
 
 enum AppState {
   Loading,
@@ -92,6 +92,87 @@ const App: React.FC = () => {
     }
   }, [cryptoKey]);
   
+    const handleExportData = async () => {
+        setIsLoading(true);
+        try {
+            const encryptedData = await dbService.getEncryptedData();
+            if (!encryptedData) {
+                throw new Error("Нет данных для экспорта.");
+            }
+            
+            const backupObject = {
+                appName: 'MyHealthPledgeBackup',
+                version: 1,
+                encryptedData,
+            };
+
+            const backupJson = JSON.stringify(backupObject, null, 2);
+            const blob = new Blob([backupJson], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const date = new Date().toISOString().split('T')[0];
+            a.download = `health-data-backup-${date}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+        } catch (error) {
+            console.error("Export failed:", error);
+            const errorMessage = error instanceof Error ? error.message : "Не удалось экспортировать данные.";
+            alert(`Ошибка экспорта: ${errorMessage}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleImportData = async (fileContent: string) => {
+        if (!cryptoKey || !data) {
+            alert("Ошибка: Ключ шифрования не найден. Попробуйте перезайти в приложение.");
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const backup = JSON.parse(fileContent);
+            if (backup.appName !== 'MyHealthPledgeBackup' || !backup.encryptedData) {
+                throw new Error("Неверный формат файла резервной копии.");
+            }
+
+            const importedData = await cryptoService.decryptData<AppData>(cryptoKey, backup.encryptedData);
+
+            // Merge records
+            const combinedRecords = [...data.records, ...importedData.records];
+            const uniqueRecordsMap = new Map<string, MedicalRecord>();
+            combinedRecords.forEach(record => {
+                uniqueRecordsMap.set(record.id, record);
+            });
+            const mergedRecords = Array.from(uniqueRecordsMap.values())
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+            // Merge profile info (imported data takes precedence if it exists and not empty)
+            const mergedUserName = importedData.userName || data.userName;
+            const mergedUserDob = importedData.userDob || data.userDob;
+            
+            const updatedData: AppData = {
+                ...data,
+                userName: mergedUserName,
+                userDob: mergedUserDob,
+                records: mergedRecords,
+            };
+
+            await handleUpdateData(updatedData);
+            alert("Данные успешно импортированы и объединены!");
+
+        } catch (error) {
+            console.error("Import failed:", error);
+            const errorMessage = error instanceof Error ? error.message : "Не удалось импортировать данные.";
+            alert(`Ошибка импорта: ${errorMessage}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
   const handleLock = () => {
     setCryptoKey(null);
     setData(null);
@@ -115,6 +196,8 @@ const App: React.FC = () => {
             <Dashboard 
               appData={data} 
               onUpdateData={handleUpdateData} 
+              onExportData={handleExportData}
+              onImportData={handleImportData}
               onLock={handleLock}
               isHighContrast={isHighContrast}
               toggleHighContrast={toggleHighContrast}
