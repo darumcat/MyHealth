@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuthScreen } from './components/AuthScreen';
 import Dashboard from './components/Dashboard';
@@ -5,6 +6,7 @@ import { OnboardingScreen } from './components/OnboardingScreen';
 import { cryptoService } from './lib/crypto';
 import { dbService } from './lib/db';
 import type { AppData, MedicalRecord } from './types';
+import { ResetConfirmationModal } from './components/ResetConfirmationModal';
 
 enum AppState {
   Loading,
@@ -18,6 +20,7 @@ const App: React.FC = () => {
   const [isNewUser, setIsNewUser] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResetConfirmVisible, setIsResetConfirmVisible] = useState(false);
 
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
   const [data, setData] = useState<AppData | null>(null);
@@ -33,6 +36,15 @@ const App: React.FC = () => {
     }
     localStorage.setItem('highContrast', String(isHighContrast));
   }, [isHighContrast]);
+  
+  const resetAppState = () => {
+    setCryptoKey(null);
+    setData(null);
+    setAuthError(null);
+    setIsLoading(false);
+    setIsNewUser(true);
+    setAppState(AppState.Onboarding);
+  };
 
   useEffect(() => {
     const checkUserStatus = async () => {
@@ -180,6 +192,21 @@ const App: React.FC = () => {
     setAppState(AppState.Auth);
   };
 
+  const handleResetRequest = () => {
+    setIsResetConfirmVisible(true);
+  };
+
+  const confirmReset = async () => {
+      setIsResetConfirmVisible(false);
+      try {
+          await dbService.clearData();
+          resetAppState();
+      } catch (error) {
+          console.error("Failed to clear data:", error);
+          alert("Не удалось удалить данные. Пожалуйста, попробуйте еще раз.");
+      }
+  };
+
   const toggleHighContrast = () => setIsHighContrast(prev => !prev);
 
   const renderContent = () => {
@@ -189,7 +216,7 @@ const App: React.FC = () => {
       case AppState.Onboarding:
         return <OnboardingScreen onStart={() => setAppState(AppState.Auth)} />;
       case AppState.Auth:
-        return <AuthScreen isNewUser={isNewUser} onUnlock={handleUnlock} error={authError} isLoading={isLoading} />;
+        return <AuthScreen isNewUser={isNewUser} onUnlock={handleUnlock} error={authError} isLoading={isLoading} onReset={handleResetRequest} />;
       case AppState.Dashboard:
         if (data) {
           return (
@@ -214,6 +241,12 @@ const App: React.FC = () => {
   return (
     <div className="bg-slate-100 min-h-screen">
       {renderContent()}
+      {isResetConfirmVisible && (
+        <ResetConfirmationModal
+          onConfirm={confirmReset}
+          onCancel={() => setIsResetConfirmVisible(false)}
+        />
+      )}
     </div>
   );
 };

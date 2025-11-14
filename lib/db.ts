@@ -33,8 +33,14 @@ async function hasData(): Promise<boolean> {
   return !!data;
 }
 
+async function clearData(): Promise<void> {
+    const db = await getDb();
+    await db.clear(STORE_NAME);
+}
+
 export const dbService = {
   saveEncryptedData,
   getEncryptedData,
   hasData,
+  clearData,
 };

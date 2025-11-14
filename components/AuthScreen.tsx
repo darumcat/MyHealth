@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { LogoIcon } from './icons';
 
@@ -6,9 +7,10 @@ interface AuthScreenProps {
   onUnlock: (password: string) => Promise<void>;
   error: string | null;
   isLoading: boolean;
+  onReset: () => void;
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ isNewUser, onUnlock, error, isLoading }) => {
+export const AuthScreen: React.FC<AuthScreenProps> = ({ isNewUser, onUnlock, error, isLoading, onReset }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -35,7 +37,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isNewUser, onUnlock, err
           </h1>
           <p className="text-slate-600 mt-1 text-center">
             {isNewUser
-              ? 'Этот пароль шифрует ваши данные. Мы не можем его восстановить.'
+              ? <>Этот пароль шифрует ваши данные. <strong>Запишите или хорошо запомните его.</strong> Мы не сможем его восстановить.</>
               : 'Введите ваш пароль для доступа к данным.'}
           </p>
         </div>
@@ -81,6 +83,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ isNewUser, onUnlock, err
             </button>
           </div>
         </form>
+
+        {!isNewUser && (
+          <div className="mt-6 text-center">
+            <p className="text-sm text-slate-600">Забыли пароль?</p>
+            <p className="text-xs text-slate-500 mt-1 mb-3">Вы можете удалить все данные и создать новый аккаунт. Внимание: это действие необратимо.</p>
+            <button
+              type="button"
+              onClick={onReset}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition-colors"
+            >
+              Удалить данные и создать новый аккаунт
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
